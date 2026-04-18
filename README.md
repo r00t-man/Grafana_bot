@@ -1,6 +1,6 @@
 # Grafana Telegram Bot — полная техническая документация
 
-> Подробная developer-level документация по архитектуре, логике, функциям, состояниям и эксплуатации бота из папки `Боты ТГ/grafana_bot`.
+> Подробная developer-level документация по архитектуре, логике, функциям, состояниям и эксплуатации **отдельного репозитория** `Grafana_bot` (больше не подпапка в `MZT`).
 
 ---
 
@@ -9,8 +9,8 @@
 ### 1) Клонирование репозитория
 
 ```bash
-git clone https://github.com/r00t-man/MZT.git
-cd MZT/Bots_TG/Grafana_bot
+git clone https://github.com/r00t-man/Grafana_bot.git
+cd Grafana_bot
 ```
 
 Если хотите сразу развернуть в `/opt`:
@@ -18,9 +18,38 @@ cd MZT/Bots_TG/Grafana_bot
 ```bash
 sudo mkdir -p /opt/grafana_bot
 sudo chown -R $USER:$USER /opt/grafana_bot
-git clone https://github.com/r00t-man/MZT.git /opt/grafana_bot_repo
-cp -a /opt/grafana_bot_repo/Bots_TG/Grafana_bot/. /opt/grafana_bot/
+git clone https://github.com/r00t-man/Grafana_bot.git /opt/grafana_bot
 cd /opt/grafana_bot
+```
+
+### 1.1) Инициализация локальных data-файлов (первый запуск)
+
+В репозитории хранятся только шаблоны:
+
+- `data/alert_mutes.json_temp`
+- `data/users_registry.json_temp`
+
+Создайте рабочие файлы один раз:
+
+```bash
+cp -n data/alert_mutes.json_temp data/alert_mutes.json
+cp -n data/users_registry.json_temp data/users_registry.json
+```
+
+Ключ `-n` не перезапишет файлы, если они уже существуют.
+
+### 1.2) Обновление бота через git без перезаписи пользовательских data
+
+```bash
+cd /opt/grafana_bot
+git pull --ff-only
+```
+
+После обновления можно безопасно повторить инициализацию (файлы не затрутся):
+
+```bash
+cp -n data/alert_mutes.json_temp data/alert_mutes.json
+cp -n data/users_registry.json_temp data/users_registry.json
 ```
 
 ### 2) Установка Python 3 (если не установлен)
@@ -180,8 +209,10 @@ grafana_bot/
 │  ├─ user_registry.py   # Реестр пользователей и блокировки
 │  └─ alerts_state.py    # Состояние mute-режимов алертов
 ├─ data/
-│  ├─ users_registry.json
-│  └─ alert_mutes.json
+│  ├─ users_registry.json_temp      # шаблон в репозитории
+│  ├─ alert_mutes.json_temp         # шаблон в репозитории
+│  ├─ users_registry.json           # рабочий файл (локальный, в git не хранится)
+│  └─ alert_mutes.json              # рабочий файл (локальный, в git не хранится)
 └─ .env                  # Конфигурация окружения
 ```
 
