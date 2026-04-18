@@ -1,0 +1,11 @@
+# Runtime state files (local data)
+data/alert_mutes.json
+data/users_registry.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local environment
+.env
+venv/
