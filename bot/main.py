@@ -1,5 +1,6 @@
 import logging
 import os
+import socket
 from datetime import datetime
 from html import escape
 
@@ -25,6 +26,7 @@ from .ui import (
     node_details_menu,
     traffic_menu,
     alerts_menu,
+    bot_server_menu,
     persistent_menu_keyboard,
     users_menu,
     user_card_menu,
@@ -91,6 +93,25 @@ def _format_gb(value_bytes: float) -> str:
 def _admin_menu_markup(update: Update):
     """update: объект Telegram Update для определения прав администратора."""
     return main_menu(show_admin=is_admin(update))
+
+
+def _bot_server_text() -> str:
+    """Возвращает информацию о сервере, на котором запущен бот."""
+    server_name = os.getenv("BOT_SERVER_NAME", "Grafana Bot")
+    hostname = socket.gethostname() or "—"
+    ip = "—"
+
+    try:
+        ip = socket.gethostbyname(hostname)
+    except Exception:
+        pass
+
+    return (
+        "<b>🖥 Сервер бота</b>\n\n"
+        f"<b>Название сервера:</b> {escape(server_name)}\n"
+        f"<b>Hostname:</b> <code>{escape(hostname)}</code>\n"
+        f"<b>IP:</b> <code>{escape(ip)}</code>"
+    )
 
 
 async def _deny_if_blocked(update: Update):
@@ -292,6 +313,16 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Это не повлияет на других пользователей бота.</blockquote>"
         )
         return await safe_edit(q, txt, reply_markup=alerts_menu())
+
+    if data == "botserver_menu":
+        txt = (
+            "<b>🖥 Информация о сервере бота</b>\n\n"
+            "<blockquote>Нажми кнопку ниже, чтобы посмотреть название сервера, hostname и IP.</blockquote>"
+        )
+        return await safe_edit(q, txt, reply_markup=bot_server_menu())
+
+    if data == "botserver_info":
+        return await safe_edit(q, _bot_server_text(), reply_markup=bot_server_menu())
 
     if data == "alerts_status":
         return await safe_edit(q, _format_alert_status(user_chat_id), reply_markup=alerts_menu())

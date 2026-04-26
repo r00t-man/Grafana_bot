@@ -35,6 +35,9 @@ def main_menu(show_admin: bool = False):
         [
             InlineKeyboardButton("🔕 Алерты", callback_data="alerts_menu"),
         ],
+        [
+            InlineKeyboardButton("🖥 Сервер бота", callback_data="botserver_menu"),
+        ],
     ]
 
     if show_admin:
@@ -43,6 +46,17 @@ def main_menu(show_admin: bool = False):
     rows.append([InlineKeyboardButton("🔄 Обновить", callback_data="refresh")])
 
     return InlineKeyboardMarkup(rows)
+
+
+def bot_server_menu():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("📌 Показать данные", callback_data="botserver_info"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ В меню", callback_data="menu"),
+        ],
+    ])
 
 
 def traffic_menu():
