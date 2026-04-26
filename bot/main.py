@@ -104,9 +104,10 @@ def _bot_server_text() -> str:
         nodes = []
 
     lines = [
-        "<b>🖥 Мониторинг нод</b>",
+        "<b>🖥 Серверы бота</b>",
         "",
         f"<b>Источник:</b> {escape(server_name)}",
+        "<blockquote>IP берётся из active targets Prometheus (/api/v1/targets).</blockquote>",
     ]
 
     if not nodes:
@@ -117,11 +118,14 @@ def _bot_server_text() -> str:
         return "\n".join(lines)
 
     for idx, node in enumerate(nodes, start=1):
+        hostname = escape(node["hostname"])
+        ip = escape(node["ip"])
+        instance = escape(node["instance"])
         lines.extend([
             "",
-            f"<b>{idx}.</b> <code>{escape(node['instance'])}</code>",
-            f"Hostname: <code>{escape(node['hostname'])}</code>",
-            f"IP: <code>{escape(node['ip'])}</code>",
+            f"<b>{idx}. {instance}</b>",
+            f"├ Hostname: <code>{hostname}</code>",
+            f"└ IP: <code>{ip}</code>",
         ])
 
     return "\n".join(lines)
