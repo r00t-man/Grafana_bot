@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import ipaddress
 import requests
 import urllib3
 
@@ -154,6 +155,43 @@ def _escape(val: str) -> str:
 
 def _q_up():
     return f'up{{job="{JOB}"}}'
+
+
+def _q_uname_info():
+    return f'node_uname_info{{job="{JOB}"}}'
+
+
+def _split_host_port(instance: str):
+    """
+    instance: значение метки instance (обычно host:port, [ipv6]:port или просто host).
+    """
+    value = str(instance or "").strip()
+    if not value:
+        return "", ""
+
+    # IPv6 в формате [addr]:port.
+    if value.startswith("["):
+        end = value.find("]")
+        if end != -1:
+            host = value[1:end]
+            port = value[end + 2:] if len(value) > end + 2 and value[end + 1] == ":" else ""
+            return host, port
+
+    # host:port (включая IPv4/hostname).
+    if value.count(":") == 1:
+        host, port = value.split(":", 1)
+        return host, port
+
+    # Чистый IPv6/hostname без порта.
+    return value, ""
+
+
+def _is_ip_address(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
 
 
 def _q_cpu(instance=None):
@@ -356,6 +394,47 @@ def get_summary_snapshot(force_refresh: bool = False):
         "rx": get_traffic_rx(force_refresh=force_refresh),
         "tx": get_traffic_tx(force_refresh=force_refresh),
     }
+
+
+def get_monitored_nodes(force_refresh: bool = False):
+    """
+    Возвращает список нод с hostname/ip на основе метрик Prometheus.
+    """
+    up_result = query(_q_up(), force_refresh=force_refresh)
+    uname_result = query(_q_uname_info(), force_refresh=force_refresh)
+
+    nodename_by_instance = {}
+    for item in uname_result:
+        metric = item.get("metric", {})
+        raw_instance = str(metric.get("instance", "")).strip()
+        nodename = str(metric.get("nodename", "")).strip()
+        if raw_instance:
+            nodename_by_instance[raw_instance] = nodename
+
+    nodes = []
+    for item in up_result:
+        metric = item.get("metric", {})
+        raw_instance = str(metric.get("instance", "")).strip()
+        if not raw_instance:
+            continue
+
+        host, _ = _split_host_port(raw_instance)
+        nodename = nodename_by_instance.get(raw_instance, "")
+
+        if _is_ip_address(host):
+            ip = host
+            hostname = nodename or "—"
+        else:
+            hostname = nodename or host or "—"
+            ip = "—"
+
+        nodes.append({
+            "instance": raw_instance,
+            "hostname": hostname,
+            "ip": ip,
+        })
+
+    return sorted(nodes, key=lambda x: x["instance"])
 
 
 def get_node_snapshot(instance: str, force_refresh: bool = False):
