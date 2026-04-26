@@ -1,6 +1,5 @@
 import logging
 import os
-import socket
 from datetime import datetime
 from html import escape
 
@@ -41,6 +40,7 @@ from .prometheus import (
     get_traffic_sum_period,
     get_traffic_sum_total,
     get_node_snapshot,
+    get_monitored_nodes,
 )
 from .reserve_logic import render_node_status
 from .alerts_state import (
@@ -96,22 +96,35 @@ def _admin_menu_markup(update: Update):
 
 
 def _bot_server_text() -> str:
-    """Возвращает информацию о сервере, на котором запущен бот."""
+    """Возвращает hostname и IP нод, которые мониторит бот."""
     server_name = os.getenv("BOT_SERVER_NAME", "Grafana Bot")
-    hostname = socket.gethostname() or "—"
-    ip = "—"
-
     try:
-        ip = socket.gethostbyname(hostname)
+        nodes = get_monitored_nodes(force_refresh=True)
     except Exception:
-        pass
+        nodes = []
 
-    return (
-        "<b>🖥 Сервер бота</b>\n\n"
-        f"<b>Название сервера:</b> {escape(server_name)}\n"
-        f"<b>Hostname:</b> <code>{escape(hostname)}</code>\n"
-        f"<b>IP:</b> <code>{escape(ip)}</code>"
-    )
+    lines = [
+        "<b>🖥 Мониторинг нод</b>",
+        "",
+        f"<b>Источник:</b> {escape(server_name)}",
+    ]
+
+    if not nodes:
+        lines.extend([
+            "",
+            "<blockquote>Не удалось получить список нод из Prometheus.</blockquote>",
+        ])
+        return "\n".join(lines)
+
+    for idx, node in enumerate(nodes, start=1):
+        lines.extend([
+            "",
+            f"<b>{idx}.</b> <code>{escape(node['instance'])}</code>",
+            f"Hostname: <code>{escape(node['hostname'])}</code>",
+            f"IP: <code>{escape(node['ip'])}</code>",
+        ])
+
+    return "\n".join(lines)
 
 
 async def _deny_if_blocked(update: Update):
@@ -316,8 +329,8 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "botserver_menu":
         txt = (
-            "<b>🖥 Информация о сервере бота</b>\n\n"
-            "<blockquote>Нажми кнопку ниже, чтобы посмотреть название сервера, hostname и IP.</blockquote>"
+            "<b>🖥 Информация по нодам</b>\n\n"
+            "<blockquote>Нажми кнопку ниже, чтобы посмотреть hostname и IP нод, которые мониторит бот.</blockquote>"
         )
         return await safe_edit(q, txt, reply_markup=bot_server_menu())
 
