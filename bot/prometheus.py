@@ -127,6 +127,34 @@ def query(q: str, force_refresh: bool = False):
     return _cache_set(key, data["data"]["result"])
 
 
+def targets(force_refresh: bool = False):
+    """
+    Возвращает список активных targets из Prometheus API /api/v1/targets.
+    """
+    key = "targets:active"
+
+    if not force_refresh:
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+
+    r = _session.get(
+        f"{PROMETHEUS_URL}/api/v1/targets",
+        params={"state": "active"},
+        timeout=HTTP_TIMEOUT,
+        auth=_auth(),
+        verify=PROMETHEUS_VERIFY_SSL,
+    )
+    r.raise_for_status()
+
+    data = r.json()
+    if data.get("status") != "success":
+        raise RuntimeError(f"Prometheus targets failed: {data}")
+
+    active = data.get("data", {}).get("activeTargets", [])
+    return _cache_set(key, active)
+
+
 def result_map(result):
     out = {}
     for x in result:
@@ -192,6 +220,39 @@ def _is_ip_address(value: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _extract_ip_from_target(target: dict) -> str:
+    """
+    Достаёт IP адрес target'а, если он присутствует в scrapeUrl/__address__/instance.
+    """
+    labels = target.get("labels", {}) or {}
+    discovered = target.get("discoveredLabels", {}) or {}
+    scrape_url = str(target.get("scrapeUrl", "")).strip()
+
+    candidates = []
+    if scrape_url:
+        m = re.match(r"^https?://(\[[^\]]+\]|[^/:]+)(?::\d+)?(?:/|$)", scrape_url)
+        if m:
+            candidates.append(m.group(1))
+
+    for field in ("__address__", "instance"):
+        raw = str(discovered.get(field, "")).strip()
+        if raw:
+            host, _ = _split_host_port(raw)
+            candidates.append(host)
+
+    raw_instance = str(labels.get("instance", "")).strip()
+    if raw_instance:
+        host, _ = _split_host_port(raw_instance)
+        candidates.append(host)
+
+    for host in candidates:
+        host = host.strip("[]")
+        if _is_ip_address(host):
+            return host
+
+    return ""
 
 
 def _q_cpu(instance=None):
@@ -411,6 +472,22 @@ def get_monitored_nodes(force_refresh: bool = False):
         if raw_instance:
             nodename_by_instance[raw_instance] = nodename
 
+    ip_by_instance = {}
+    try:
+        targets_result = targets(force_refresh=force_refresh)
+    except Exception:
+        targets_result = []
+
+    for target in targets_result:
+        labels = target.get("labels", {}) or {}
+        job = str(labels.get("job", "")).strip()
+        instance = str(labels.get("instance", "")).strip()
+        if job != JOB or not instance:
+            continue
+        ip = _extract_ip_from_target(target)
+        if ip:
+            ip_by_instance[instance] = ip
+
     nodes = []
     for item in up_result:
         metric = item.get("metric", {})
@@ -420,8 +497,12 @@ def get_monitored_nodes(force_refresh: bool = False):
 
         host, _ = _split_host_port(raw_instance)
         nodename = nodename_by_instance.get(raw_instance, "")
+        ip_from_target = ip_by_instance.get(raw_instance, "")
 
-        if _is_ip_address(host):
+        if ip_from_target:
+            ip = ip_from_target
+            hostname = nodename or (host if not _is_ip_address(host) else "—")
+        elif _is_ip_address(host):
             ip = host
             hostname = nodename or "—"
         else:
