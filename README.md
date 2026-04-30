@@ -1,5 +1,11 @@
 # Grafana Telegram Bot — полная техническая документация
 
+> ## ✨ Обновления бота (April 30, 2026)
+> - Добавлен раздел **⚙️ Настройки** (для админа) с управлением флагами нод.
+> - Реализовано назначение флага серверу через Telegram: выбери ноду → отправь эмодзи флага.
+> - Флаги отображаются в списке нод, карточке ноды и в общем статусе.
+> - Добавлен шаблон файла `data/node_flags.json_temp` для хранения соответствий `нода -> флаг`.
+
 > Подробная developer-level документация по архитектуре, логике, функциям, состояниям и эксплуатации **отдельного репозитория** `Grafana_bot` (больше не подпапка в `MZT`).
 
 ---
@@ -28,12 +34,14 @@ cd /opt/grafana_bot
 
 - `data/alert_mutes.json_temp`
 - `data/users_registry.json_temp`
+- `data/node_flags.json_temp`
 
 Создайте рабочие файлы один раз:
 
 ```bash
 cp -n data/alert_mutes.json_temp data/alert_mutes.json
 cp -n data/users_registry.json_temp data/users_registry.json
+cp -n data/node_flags.json_temp data/node_flags.json
 ```
 
 Ключ `-n` не перезапишет файлы, если они уже существуют.
@@ -50,6 +58,7 @@ git pull --ff-only
 ```bash
 cp -n data/alert_mutes.json_temp data/alert_mutes.json
 cp -n data/users_registry.json_temp data/users_registry.json
+cp -n data/node_flags.json_temp data/node_flags.json
 ```
 
 ### 2) Установка Python 3 (если не установлен)

@@ -42,9 +42,35 @@ def main_menu(show_admin: bool = False):
 
     if show_admin:
         rows.append([InlineKeyboardButton("👥 Пользователи", callback_data="users:0")])
+        rows.append([InlineKeyboardButton("⚙️ Настройки", callback_data="settings_menu")])
 
     rows.append([InlineKeyboardButton("🔄 Обновить", callback_data="refresh")])
 
+    return InlineKeyboardMarkup(rows)
+
+
+def settings_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏳️ Флаги нод", callback_data="flag_assign:0")],
+        [InlineKeyboardButton("⬅️ В меню", callback_data="menu")],
+    ])
+
+
+def flag_nodes_menu(nodes, page=0, per_page=8):
+    start = page * per_page
+    chunk = nodes[start:start + per_page]
+    rows = []
+    for idx, label in enumerate(chunk, start=start):
+        rows.append([InlineKeyboardButton(label[:48], callback_data=f"flagnode:{idx}:page:{page}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️", callback_data=f"flag_assign:{page-1}"))
+    if start + per_page < len(nodes):
+        nav.append(InlineKeyboardButton("➡️", callback_data=f"flag_assign:{page+1}"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("⬅️ В настройки", callback_data="settings_menu")])
     return InlineKeyboardMarkup(rows)
 
 

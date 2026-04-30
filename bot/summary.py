@@ -2,6 +2,7 @@ from html import escape
 
 from .prometheus import get_summary_snapshot, get_up
 from .reserve_logic import render_node_status
+from .node_flags import get_flag
 
 
 def make_summary(force_refresh: bool = False):
@@ -87,12 +88,13 @@ def make_status_text(force_refresh: bool = False):
     offline = []
 
     for name, state in sorted(up.items()):
+        title = f"{get_flag(name)} {name}".strip()
         status = render_node_status(name, state, up)
 
         if status == "🔋 Онлайн":
-            online.append(f"🔋 {escape(name)}")
+            online.append(f"🔋 {escape(title)}")
         else:
-            offline.append(f"🪫 {escape(name)}")
+            offline.append(f"🪫 {escape(title)}")
 
     total = len(online) + len(offline)
     text = "<b>📊 Статус нод</b>\n\n"
