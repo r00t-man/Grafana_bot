@@ -29,6 +29,8 @@ from .ui import (
     persistent_menu_keyboard,
     users_menu,
     user_card_menu,
+    settings_menu,
+    flag_nodes_menu,
 )
 from .summary import make_summary, make_status_text
 from .prometheus import (
@@ -56,6 +58,7 @@ from .user_registry import (
     set_blocked,
 )
 from .worker import worker
+from .node_flags import get_flag, set_flag
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,6 +96,11 @@ def _format_gb(value_bytes: float) -> str:
 def _admin_menu_markup(update: Update):
     """update: объект Telegram Update для определения прав администратора."""
     return main_menu(show_admin=is_admin(update))
+
+
+def _node_title(name: str) -> str:
+    flag = get_flag(name)
+    return f"{flag} {name}".strip()
 
 
 def _bot_server_text() -> str:
@@ -273,6 +281,21 @@ async def quick_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (update.message.text or "").strip()
 
+    pending = context.user_data.get("pending_flag_node")
+    if pending and is_admin(update):
+        set_flag(pending, text)
+        context.user_data.pop("pending_flag_node", None)
+        return await update.message.reply_text(
+            (
+                "<b>✅ Флаг сохранён</b>\n\n"
+                f"Нода: <b>{escape(pending)}</b>\n"
+                f"Флаг: {escape(text)}"
+            ),
+            reply_markup=_admin_menu_markup(update),
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True,
+        )
+
     if text == "🏠 Меню":
         return await menu(update, context)
 
@@ -337,6 +360,47 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<blockquote>Нажми кнопку ниже, чтобы посмотреть hostname и IP нод, которые мониторит бот.</blockquote>"
         )
         return await safe_edit(q, txt, reply_markup=bot_server_menu())
+
+    if data == "settings_menu":
+        if not is_admin(update):
+            return await q.answer("Только для админа", show_alert=True)
+        txt = (
+            "<b>⚙️ Настройки</b>\n\n"
+            "<blockquote>Разделы администрирования бота.</blockquote>"
+        )
+        return await safe_edit(q, txt, reply_markup=settings_menu())
+
+    if data.startswith("flag_assign:"):
+        if not is_admin(update):
+            return await q.answer("Только для админа", show_alert=True)
+        page = int(data.split(":")[1])
+        inst = sorted(get_up().keys())
+        labels = [f"{_node_title(name)}" for name in inst]
+        txt = (
+            "<b>🏳️ Назначение флагов нодам</b>\n\n"
+            "<blockquote>Выбери ноду, затем отправь боту эмодзи флага отдельным сообщением.</blockquote>"
+        )
+        return await safe_edit(q, txt, reply_markup=flag_nodes_menu(labels, page=page))
+
+    if data.startswith("flagnode:"):
+        if not is_admin(update):
+            return await q.answer("Только для админа", show_alert=True)
+        parts = data.split(":")
+        idx = int(parts[1])
+        page = int(parts[3]) if len(parts) >= 4 else 0
+        inst = sorted(get_up().keys())
+        if idx < 0 or idx >= len(inst):
+            return await safe_edit(q, "Нода не найдена", reply_markup=settings_menu())
+        node_name = inst[idx]
+        context.user_data["pending_flag_node"] = node_name
+        txt = (
+            "<b>✍️ Отправь флаг для ноды</b>\n\n"
+            f"Нода: <b>{escape(node_name)}</b>\n"
+            f"Текущий флаг: <b>{escape(get_flag(node_name) or 'не задан')}</b>\n\n"
+            "<blockquote>Пример: 🇷🇺\n"
+            "После отправки флаг сразу применится.</blockquote>"
+        )
+        return await safe_edit(q, txt, reply_markup=flag_nodes_menu([f"{_node_title(n)}" for n in inst], page=page))
 
     if data == "botserver_info":
         return await safe_edit(q, _bot_server_text(), reply_markup=bot_server_menu())
@@ -473,7 +537,8 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("nodes:"):
         page = int(data.split(":")[1])
         inst = sorted(get_up().keys())
-        return await safe_edit(q, "<b>🖥 Список нод</b>", reply_markup=nodes_menu(inst, page))
+        titled = [_node_title(n) for n in inst]
+        return await safe_edit(q, "<b>🖥 Список нод</b>", reply_markup=nodes_menu(titled, page))
 
     if data.startswith("nodeidx:"):
         parts = data.split(":")
@@ -490,7 +555,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         node_status_text = render_node_status(instance, s["up"], up_map)
 
         txt = (
-            f"<b>🖥 {escape(instance)}</b>\n\n"
+            f"<b>🖥 {escape(_node_title(instance))}</b>\n\n"
             f"📶 <b>Статус:</b> {escape(node_status_text)}\n"
             f"🔥 <b>CPU:</b> {s['cpu']:.1f}% — текущая загрузка процессора\n"
             f"🧠 <b>RAM:</b> {s['mem']:.1f}% — занято оперативной памяти\n"
