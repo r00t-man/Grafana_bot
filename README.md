@@ -1,5 +1,17 @@
 # Grafana Telegram Bot — полная техническая документация
 
+> [!NOTE]
+> **Что это и для чего.** Этот бот сам метрики не собирает — он только Telegram-фронтенд поверх уже
+> работающего **Prometheus** (запросы через его HTTP API, см. `bot/prometheus.py`). Название
+> "Grafana_bot" — потому что данные и дашборды логически те же, что в Grafana, только в удобном виде
+> прямо в Telegram (статус нод, алерты, трафик), без необходимости открывать браузер.
+>
+> Если у вас ещё **нет** поднятых Prometheus + Grafana + node_exporter на нодах — это отдельный шаг
+> **до** установки этого бота. Готовый гайд и скрипты одной командой — в другом моём репозитории:
+> 📊 [r00t-man/MZT — Установка Grafana + Prometheus (центральный сервер)](https://github.com/r00t-man/MZT/blob/main/wiki/Grafana%20Prometheus%20Setup.md)
+> (там же — отдельный скрипт `install_node_exporter_agent.sh` для агента на каждой мониторимой ноде).
+> Только когда Prometheus реально отдаёт метрики на `PROMETHEUS_URL` — переходите к установке бота ниже.
+
 > [!IMPORTANT]
 > ## ✨ Обновления бота (April 30, 2026)
 > - Добавлен раздел **⚙️ Настройки** (для админа) с управлением флагами нод.
@@ -185,6 +197,11 @@ ExecStart=/home/ubuntu/apps/grafana_bot/venv/bin/python -m bot.main
 Бот получает список серверов (нод) из Prometheus — фактически из таргетов, которые описаны в `/etc/prometheus/prometheus.yml` на стороне сервера Prometheus.
 
 То есть чтобы новая нода появилась в боте, её нужно добавить в `prometheus.yml` (в нужный `scrape_config`) и перезагрузить/перечитать конфиг Prometheus.
+
+> [!TIP]
+> Как поднять сам Prometheus + Grafana и подключить к ним ноды (агент `node_exporter`) — пошагово в
+> [r00t-man/MZT — Установка Grafana + Prometheus](https://github.com/r00t-man/MZT/blob/main/wiki/Grafana%20Prometheus%20Setup.md),
+> раздел «3) Добавьте ноды в конфиг Prometheus» — это ровно тот же `prometheus.yml`, о котором речь выше.
 
 ---
 
